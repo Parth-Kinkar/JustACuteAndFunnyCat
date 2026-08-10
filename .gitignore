@@ -1,0 +1,11 @@
+# PyInstaller Build Folders
+build/
+dist/
+
+# Python Cache Files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local Cat Memory / Config
+cat_config.json

@@ -1,15 +1,34 @@
-import sys
-import random
 import math
+import random
+import sys
 import time
-from datetime import datetime # <-- NEW
+from datetime import datetime  # <-- NEW
+
 from pynput import keyboard
-from PyQt6.QtWidgets import (QApplication, QWidget, QLabel, QMenu,
-                             QInputDialog, QDialog, QVBoxLayout,
-                             QDateTimeEdit, QDialogButtonBox)
-from PyQt6.QtCore import Qt, QTimer, QPoint, QRectF, QRect, QDateTime
-from PyQt6.QtGui import (QPixmap, QPainter, QColor, QCursor, QPolygon,
-                         QPen, QBrush, QPainterPath, QFont)
+from PyQt6.QtCore import QDateTime, QPoint, QRect, QRectF, Qt, QTimer
+from PyQt6.QtGui import (
+    QBrush,
+    QColor,
+    QCursor,
+    QFont,
+    QPainter,
+    QPainterPath,
+    QPen,
+    QPixmap,
+    QPolygon,
+)
+from PyQt6.QtWidgets import (
+    QApplication,
+    QDateTimeEdit,
+    QDialog,
+    QDialogButtonBox,
+    QInputDialog,
+    QLabel,
+    QMenu,
+    QVBoxLayout,
+    QWidget,
+)
+
 
 class DesktopPet(QWidget):
     def __init__(self):
@@ -17,14 +36,14 @@ class DesktopPet(QWidget):
 
         # Window setup
         self.setWindowFlags(
-            Qt.WindowType.FramelessWindowHint |
-            Qt.WindowType.WindowStaysOnTopHint |
-            Qt.WindowType.Tool
+            Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.Tool
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
         # State & Physics
-        self.pet_state = 'IDLE'
+        self.pet_state = "IDLE"
         self.drag_position = QPoint()
 
         # Animation counters & Physics
@@ -40,8 +59,8 @@ class DesktopPet(QWidget):
         self.speech_text = ""
 
         # Speech & Memory
-        self.fixed_speech = ""    # Remembers your permanent message
-        self.active_speech = ""   # The message currently displayed
+        self.fixed_speech = ""  # Remembers your permanent message
+        self.active_speech = ""  # The message currently displayed
         self.user_name = "Parth"
         self.reminders = []
 
@@ -86,19 +105,19 @@ class DesktopPet(QWidget):
         body_y_offset = 0
         dangle = 0
 
-        if self.pet_state == 'IDLE':
+        if self.pet_state == "IDLE":
             body_y_offset = math.sin(self.step_counter * 0.5) * 1.5
-        elif self.pet_state == 'DRAG':
+        elif self.pet_state == "DRAG":
             dangle = 8
             body_y_offset = -5
-        elif self.pet_state == 'JUMPING':
+        elif self.pet_state == "JUMPING":
             # Fast, high bounce! (Negative Y moves the cat UP)
             body_y_offset = -abs(math.sin(self.step_counter * 3)) * 40
-            dangle = 5 # Paws dangle a bit when airborne
+            dangle = 5  # Paws dangle a bit when airborne
 
         painter.save()
 
-        if self.pet_state == 'DRAG':
+        if self.pet_state == "DRAG":
             lean = max(-45.0, min(45.0, self.drag_vx))
             painter.translate(75, 75)
             painter.rotate(lean)
@@ -117,8 +136,12 @@ class DesktopPet(QWidget):
 
         # 2. Back Legs
         painter.setBrush(fur_dark)
-        painter.drawEllipse(QRectF(50 + paw_swing_r, 115 + dangle + body_y_offset, 16, 20))
-        painter.drawEllipse(QRectF(84 + paw_swing_l, 115 + dangle + body_y_offset, 16, 20))
+        painter.drawEllipse(
+            QRectF(50 + paw_swing_r, 115 + dangle + body_y_offset, 16, 20)
+        )
+        painter.drawEllipse(
+            QRectF(84 + paw_swing_l, 115 + dangle + body_y_offset, 16, 20)
+        )
 
         # 3. Main Body & Chest
         painter.setBrush(fur_main)
@@ -128,28 +151,40 @@ class DesktopPet(QWidget):
 
         # 4. Front Legs (Hands) & Typing Desk
         painter.setBrush(fur_main)
-        if self.pet_state == 'TYPING':
+        if self.pet_state == "TYPING":
             painter.setBrush(QColor(80, 80, 80))
             painter.drawRect(QRectF(30, 130, 90, 20))
             left_pressed = math.sin(self.step_counter * 8) > 0
-            painter.setBrush(QColor(255, 80, 80) if left_pressed else QColor(180, 50, 50))
+            painter.setBrush(
+                QColor(255, 80, 80) if left_pressed else QColor(180, 50, 50)
+            )
             painter.drawRect(QRectF(40, 125 if left_pressed else 120, 30, 10))
-            painter.setBrush(QColor(80, 150, 255) if not left_pressed else QColor(50, 100, 180))
+            painter.setBrush(
+                QColor(80, 150, 255) if not left_pressed else QColor(50, 100, 180)
+            )
             painter.drawRect(QRectF(80, 120 if left_pressed else 125, 30, 10))
             painter.setBrush(fur_main)
             painter.drawEllipse(QRectF(45, 120 if left_pressed else 110, 20, 20))
             painter.drawEllipse(QRectF(85, 110 if left_pressed else 120, 20, 20))
         else:
-            painter.drawEllipse(QRectF(56 + paw_swing_l, 120 + dangle + body_y_offset, 14, 18))
-            painter.drawEllipse(QRectF(80 + paw_swing_r, 120 + dangle + body_y_offset, 14, 18))
+            painter.drawEllipse(
+                QRectF(56 + paw_swing_l, 120 + dangle + body_y_offset, 14, 18)
+            )
+            painter.drawEllipse(
+                QRectF(80 + paw_swing_r, 120 + dangle + body_y_offset, 14, 18)
+            )
 
         # 5. Ears
         painter.setBrush(fur_main)
         painter.drawPolygon(QPolygon([QPoint(45, 55), QPoint(35, 25), QPoint(65, 40)]))
-        painter.drawPolygon(QPolygon([QPoint(105, 55), QPoint(115, 25), QPoint(85, 40)]))
+        painter.drawPolygon(
+            QPolygon([QPoint(105, 55), QPoint(115, 25), QPoint(85, 40)])
+        )
         painter.setBrush(inner_ear)
         painter.drawPolygon(QPolygon([QPoint(48, 52), QPoint(42, 32), QPoint(60, 42)]))
-        painter.drawPolygon(QPolygon([QPoint(102, 52), QPoint(108, 32), QPoint(90, 42)]))
+        painter.drawPolygon(
+            QPolygon([QPoint(102, 52), QPoint(108, 32), QPoint(90, 42)])
+        )
 
         # 6. Head
         painter.setBrush(fur_main)
@@ -157,44 +192,105 @@ class DesktopPet(QWidget):
 
         # 7. Snout
         painter.setBrush(belly)
+        painter.setPen(Qt.PenStyle.NoPen)
         painter.drawEllipse(QRectF(55, 65, 40, 20))
 
-        # 8. Eyes
-        painter.setBrush(eye_bg)
-        painter.drawEllipse(QRectF(52, 50, 16, 18))
-        painter.drawEllipse(QRectF(82, 50, 16, 18))
+        # --- NEW: WHISKERS ---
+        painter.setPen(
+            QPen(QColor(0, 0, 0), 2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
+        )
+        # Left Whiskers
+        painter.drawLine(50, 70, 30, 65)
+        painter.drawLine(50, 75, 30, 75)
+        painter.drawLine(50, 80, 30, 85)
+        # Right Whiskers
+        painter.drawLine(100, 70, 120, 65)
+        painter.drawLine(100, 75, 120, 75)
+        painter.drawLine(100, 80, 120, 85)
 
-        # --- REAL-TIME CURSOR TRACKING (Adjusted for new translation) ---
-        mouse_pos = self.mapFromGlobal(QCursor.pos())
-        # Subtract the translation offsets so the eyes track correctly again
-        mx, my = mouse_pos.x() - 50, mouse_pos.y() - 100
+        # 8. Eyes & Mouth (Dynamic based on state)
+        if self.pet_state == "PETTING":
+            # Happy > < Eyes
+            painter.setPen(
+                QPen(QColor(0, 0, 0), 3, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
+            )
+            painter.drawLine(55, 52, 65, 59)  # > top
+            painter.drawLine(65, 59, 55, 66)  # > bottom
+            painter.drawLine(95, 52, 85, 59)  # < top
+            painter.drawLine(85, 59, 95, 66)  # < bottom
 
-        def get_pupil_offset(eye_cx, eye_cy):
-            dx, dy = mx - eye_cx, my - eye_cy
-            dist = math.hypot(dx, dy)
-            if dist == 0: return 0, 0
-            scale = min(dist / 25, 4)
-            angle = math.atan2(dy, dx)
-            return scale * math.cos(angle), scale * math.sin(angle)
+            # Happy Smile
+            painter.setPen(QPen(QColor(0, 0, 0), 2))
+            painter.drawArc(66, 75, 9, 8, 180 * 16, 180 * 16)
+            painter.drawArc(75, 75, 9, 8, 180 * 16, 180 * 16)
 
-        lx_off, ly_off = get_pupil_offset(60, 59)
-        rx_off, ry_off = get_pupil_offset(90, 59)
+        else:
+            # Normal Background Eyes
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(eye_bg)
+            painter.drawEllipse(QRectF(52, 50, 16, 18))
+            painter.drawEllipse(QRectF(82, 50, 16, 18))
 
-        painter.setBrush(QColor(20, 20, 20))
-        painter.drawEllipse(QRectF(56 + lx_off, 53 + ly_off, 8, 12))
-        painter.drawEllipse(QRectF(86 + rx_off, 53 + ry_off, 8, 12))
-        painter.setBrush(QColor(255, 255, 255))
-        painter.drawEllipse(QRectF(58 + lx_off, 54 + ly_off, 3, 4))
-        painter.drawEllipse(QRectF(88 + rx_off, 54 + ry_off, 3, 4))
+            # Cursor Tracking Math
+            mouse_pos = self.mapFromGlobal(QCursor.pos())
+            mx, my = mouse_pos.x() - 50, mouse_pos.y() - 100
 
-        # 9. Nose
+            def get_pupil_offset(eye_cx, eye_cy):
+                dx, dy = mx - eye_cx, my - eye_cy
+                dist = math.hypot(dx, dy)
+                if dist == 0:
+                    return 0, 0
+                scale = min(dist / 25, 4)
+                angle = math.atan2(dy, dx)
+                return scale * math.cos(angle), scale * math.sin(angle)
+
+            lx_off, ly_off = get_pupil_offset(60, 59)
+            rx_off, ry_off = get_pupil_offset(90, 59)
+
+            # Draw Pupils
+            painter.setBrush(QColor(20, 20, 20))
+            painter.drawEllipse(QRectF(56 + lx_off, 53 + ly_off, 8, 12))
+            painter.drawEllipse(QRectF(86 + rx_off, 53 + ry_off, 8, 12))
+
+            # Eye Highlights
+            painter.setBrush(QColor(255, 255, 255))
+            painter.drawEllipse(QRectF(58 + lx_off, 54 + ly_off, 3, 4))
+            painter.drawEllipse(QRectF(88 + rx_off, 54 + ry_off, 3, 4))
+
+            # --- NEW: DYNAMIC MOUTH ---
+            if self.pet_state == "JUMPING":
+                # Cute 'o' mouth
+                painter.setBrush(QColor(0, 0, 0))
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.drawEllipse(QRectF(72, 75, 6, 8))
+            elif self.pet_state == "DRAG":
+                # Screaming wide mouth
+                painter.setBrush(QColor(150, 50, 50))
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.drawEllipse(QRectF(70, 75, 10, 15))
+            else:
+                # Normal 'w' smile
+                painter.setPen(
+                    QPen(
+                        QColor(0, 0, 0),
+                        2,
+                        Qt.PenStyle.SolidLine,
+                        Qt.PenCapStyle.RoundCap,
+                    )
+                )
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+                painter.drawArc(66, 75, 9, 8, 180 * 16, 180 * 16)
+                painter.drawArc(75, 75, 9, 8, 180 * 16, 180 * 16)
+
+        # 9. Nose (Drawn last so it sits on top of the mouth lines)
         painter.setBrush(nose_col)
+        painter.setPen(Qt.PenStyle.NoPen)
         painter.drawEllipse(QRectF(70, 68, 10, 6))
 
         painter.restore()
 
         # --- NEW: WORD-WRAPPED SPEECH BUBBLE ---
-        if hasattr(self, 'active_speech') and self.active_speech != "":
+        if hasattr(self, "active_speech") and self.active_speech != "":
             painter.save()
             font = painter.font()
             font.setFamily("Courier")
@@ -207,33 +303,46 @@ class DesktopPet(QWidget):
             metrics = painter.fontMetrics()
 
             # Use QRect and Qt.TextFlag.TextWordWrap to calculate wrapped height
-            text_rect = metrics.boundingRect(QRect(0, 0, max_bubble_width, 500),
-                                                         Qt.TextFlag.TextWordWrap,
-                                                         self.active_speech)
+            text_rect = metrics.boundingRect(
+                QRect(0, 0, max_bubble_width, 500),
+                Qt.TextFlag.TextWordWrap,
+                self.active_speech,
+            )
 
             padding = 8
             b_width = text_rect.width() + (padding * 2)
             b_height = text_rect.height() + (padding * 2)
 
             b_x = 75 - (b_width / 2)
-            b_y = 25 - b_height # Starts right above the head
+            b_y = 25 - b_height  # Starts right above the head
 
             painter.setBrush(QColor(255, 255, 255))
             painter.setPen(QPen(QColor(0, 0, 0), 2))
-            painter.drawRoundedRect(int(b_x), int(b_y), int(b_width), int(b_height), 4, 4)
+            painter.drawRoundedRect(
+                int(b_x), int(b_y), int(b_width), int(b_height), 4, 4
+            )
 
             tail_y = int(b_y + b_height)
-            painter.drawPolygon(QPolygon([
-                QPoint(70, tail_y), QPoint(80, tail_y), QPoint(75, tail_y + 6)
-            ]))
+            painter.drawPolygon(
+                QPolygon(
+                    [QPoint(70, tail_y), QPoint(80, tail_y), QPoint(75, tail_y + 6)]
+                )
+            )
             painter.setPen(QPen(QColor(255, 255, 255), 2))
             painter.drawLine(71, tail_y, 79, tail_y)
 
             painter.setPen(QColor(0, 0, 0))
             # Draw the wrapped text inside our calculated box
-            painter.drawText(QRect(int(b_x + padding), int(b_y + padding), text_rect.width(), text_rect.height()),
-                                         Qt.TextFlag.TextWordWrap,
-                                         self.active_speech)
+            painter.drawText(
+                QRect(
+                    int(b_x + padding),
+                    int(b_y + padding),
+                    text_rect.width(),
+                    text_rect.height(),
+                ),
+                Qt.TextFlag.TextWordWrap,
+                self.active_speech,
+            )
             painter.restore()
 
         painter.end()
@@ -253,62 +362,75 @@ class DesktopPet(QWidget):
 
     def change_state(self):
         # Don't let random AI interrupt dragging, typing, or jumping
-        if self.pet_state in ['DRAG', 'TYPING', 'JUMPING']:
+        if self.pet_state in ["DRAG", "TYPING", "JUMPING", "PETTING"]:
             return
 
-        self.pet_state = 'IDLE'
+        self.pet_state = "IDLE"
         self.state_timer.setInterval(random.randint(2000, 5000))
         self.step_counter = 0.0
 
     def update_behavior(self):
         self.step_counter += 0.2
 
-        # --- NEW: Check Active Reminders ---
+        # --- Check Active Reminders ---
         current_dt = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-        # Iterate over a copy of the list [:] so we can safely remove items
         for r in self.reminders[:]:
-            if current_dt == r['time']:
-                # Set the speech text to include your name and the message
+            if current_dt == r["time"]:
                 self.active_speech = f"Hey {self.user_name}, {r['message']}!"
-                self.pet_state = 'JUMPING'
+                self.pet_state = "JUMPING"
                 self.reminders.remove(r)
                 self.update_sprite()
 
         # --- Check if typing ---
-        # If a key was pressed in the last 0.3 seconds, trigger typing
         if time.time() - self.last_type_time < 0.3:
-            self.pet_state = 'TYPING'
-        elif self.pet_state == 'TYPING':
-            # Once 0.3 seconds pass without a keypress, go back to idle
-            self.pet_state = 'IDLE'
+            self.pet_state = "TYPING"
+        elif self.pet_state == "TYPING":
+            self.pet_state = "IDLE"
+
+        # --- NEW: Hover / Petting Detection ---
+        if self.pet_state in ["IDLE", "PETTING"]:
+            # Get the mouse position relative to our drawing grid
+            mouse_pos = self.mapFromGlobal(QCursor.pos())
+            mx, my = mouse_pos.x() - 50, mouse_pos.y() - 100
+
+            # Use distance math to check if the cursor is near the center of the head (approx 75, 62)
+            dist = math.hypot(mx - 75, my - 62)
+
+            if dist < 35:  # If cursor is within 35 pixels of the head center
+                self.pet_state = "PETTING"
+            else:
+                self.pet_state = "IDLE"
 
         self.update_sprite()
 
         # --- Drag Physics (Friction) ---
-        if self.pet_state == 'DRAG':
-            # Rapidly slow down the swing when the mouse stops moving
+        if self.pet_state == "DRAG":
             self.drag_vx *= 0.7
 
-   # --- Mouse Events ---
+    # --- Mouse Events ---
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             # NEW: Acknowledge the reminder and calm the cat down
-            if self.pet_state == 'JUMPING':
-                self.pet_state = 'IDLE'
-                self.active_speech = self.fixed_speech # Restore the old message!
+            if self.pet_state == "JUMPING":
+                self.pet_state = "IDLE"
+                self.active_speech = self.fixed_speech  # Restore the old message!
                 self.update_sprite()
                 event.accept()
-                return # Stop here so we don't accidentally drag it
+                return  # Stop here so we don't accidentally drag it
 
             # Normal drag behavior
-            self.pet_state = 'DRAG'
-            self.drag_position = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            self.pet_state = "DRAG"
+            self.drag_position = (
+                event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            )
             event.accept()
 
         elif event.button() == Qt.MouseButton.RightButton:
             menu = QMenu(self)
-            menu.setStyleSheet("QMenu { background-color: white; border: 1px solid black; }")
+            menu.setStyleSheet(
+                "QMenu { background-color: white; border: 1px solid black; }"
+            )
 
             msg_action = menu.addAction("Fixed message")
             clear_action = menu.addAction("Clear message")
@@ -320,23 +442,27 @@ class DesktopPet(QWidget):
 
             # 1. Fixed Message
             if action == msg_action:
-                text, ok = QInputDialog.getText(self, "Cat Speech", "What should the cat say?")
+                text, ok = QInputDialog.getText(
+                    self, "Cat Speech", "What should the cat say?"
+                )
                 if ok:
                     self.fixed_speech = text
-                    self.active_speech = text # Set both!
+                    self.active_speech = text  # Set both!
                     self.update_sprite()
 
             # 2. Clear Message
             elif action == clear_action:
                 self.fixed_speech = ""
-                self.active_speech = "" # Clear both!
+                self.active_speech = ""  # Clear both!
                 self.update_sprite()
 
             # ... rest of the Right-Click logic (Tell my name, Set a reminder) remains identical
 
             # 3. Tell My Name
             elif action == name_action:
-                text, ok = QInputDialog.getText(self, "Name", "What should I call you?", text=self.user_name)
+                text, ok = QInputDialog.getText(
+                    self, "Name", "What should I call you?", text=self.user_name
+                )
                 if ok and text:
                     self.user_name = text
 
@@ -352,10 +478,16 @@ class DesktopPet(QWidget):
                 # --- The Interactive Calendar & Clock UI ---
                 dt_edit = QDateTimeEdit(dialog)
                 dt_edit.setDateTime(QDateTime.currentDateTime())
-                dt_edit.setCalendarPopup(True) # This enables the dropdown calendar widget
+                dt_edit.setCalendarPopup(
+                    True
+                )  # This enables the dropdown calendar widget
                 layout.addWidget(dt_edit)
 
-                buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel, dialog)
+                buttons = QDialogButtonBox(
+                    QDialogButtonBox.StandardButton.Ok
+                    | QDialogButtonBox.StandardButton.Cancel,
+                    dialog,
+                )
                 buttons.accepted.connect(dialog.accept)
                 buttons.rejected.connect(dialog.reject)
                 layout.addWidget(buttons)
@@ -365,14 +497,16 @@ class DesktopPet(QWidget):
                     selected_dt = dt_edit.dateTime().toPyDateTime()
                     time_str = selected_dt.strftime("%Y-%m-%d %H:%M")
 
-                    msg, ok2 = QInputDialog.getText(self, "Reminder Message", "What should I remind you about?")
+                    msg, ok2 = QInputDialog.getText(
+                        self, "Reminder Message", "What should I remind you about?"
+                    )
                     if ok2 and msg:
-                        self.reminders.append({'time': time_str, 'message': msg})
+                        self.reminders.append({"time": time_str, "message": msg})
 
             event.accept()
 
     def mouseMoveEvent(self, event):
-        if event.buttons() == Qt.MouseButton.LeftButton and self.pet_state == 'DRAG':
+        if event.buttons() == Qt.MouseButton.LeftButton and self.pet_state == "DRAG":
             new_pos = event.globalPosition().toPoint() - self.drag_position
 
             # Calculate how far we moved on the X axis this frame
@@ -389,7 +523,8 @@ class DesktopPet(QWidget):
             self.change_state()
             event.accept()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     app = QApplication(sys.argv)
     pet = DesktopPet()
 

@@ -54,6 +54,7 @@ class DesktopPet(QWidget):
         # Animation counters & Physics
         self.step_counter = 0.0
         self.drag_vx = 0.0
+        self.drag_vy = 0.0
 
         # Typing Tracker
         self.last_type_time = 0.0
@@ -78,6 +79,9 @@ class DesktopPet(QWidget):
         self.pomo_focus_duration = 0
         self.pomo_break_duration = 0
         self.pomo_end_time = 0
+
+        # --- NEW: Particle System ---
+        self.particles = []
 
         self.init_ui()
         self.init_timers()
@@ -162,6 +166,8 @@ class DesktopPet(QWidget):
 
         paw_swing_l = 0
         paw_swing_r = 0
+        scramble_l = 0  # NEW: Frantic drag legs
+        scramble_r = 0  # NEW: Frantic drag legs
         body_y_offset = 0
         dangle = 0
         is_sitting = self.pet_state in ["IDLE", "PETTING"]
@@ -171,6 +177,9 @@ class DesktopPet(QWidget):
         elif self.pet_state == "DRAG":
             dangle = 8
             body_y_offset = -5
+            # Frantic up-and-down scrambling!
+            scramble_l = math.sin(self.step_counter * 25) * 8
+            scramble_r = math.cos(self.step_counter * 25) * 8
         elif self.pet_state == "JUMPING":
             body_y_offset = -abs(math.sin(self.step_counter * 3)) * 40
             dangle = 5
@@ -181,11 +190,17 @@ class DesktopPet(QWidget):
             lean = max(-45.0, min(45.0, self.drag_vx))
             painter.translate(75, 75)
             painter.rotate(lean)
-            stretch = abs(lean) / 100.0
-            painter.scale(1.0 - (stretch * 0.5), 1.0 + stretch)
             painter.translate(-75, -75)
 
         # 1. Tail
+        painter.save()
+        if self.pet_state == "PETTING":
+            # Smooth, happy tail wag!
+            wag_angle = math.sin(self.step_counter * 8) * 15
+            painter.translate(40, 110 + body_y_offset)
+            painter.rotate(wag_angle)
+            painter.translate(-40, -(110 + body_y_offset))
+
         path = QPainterPath()
         path.moveTo(40, 110 + body_y_offset)
         path.cubicTo(10, 110, 10, 70, 30, 60)
@@ -193,10 +208,15 @@ class DesktopPet(QWidget):
         painter.setPen(pen)
         painter.drawPath(path)
         painter.setPen(Qt.PenStyle.NoPen)
+        painter.restore()
 
         # 2. Back Legs
         painter.setBrush(fur_dark)
-        if not is_sitting and self.pet_state != "TYPING":
+        if self.pet_state == "DRAG":
+            # Scrambling back paws
+            painter.drawEllipse(QRectF(48, 115 + dangle + scramble_l, 14, 20))
+            painter.drawEllipse(QRectF(88, 115 + dangle + scramble_r, 14, 20))
+        elif not is_sitting and self.pet_state != "TYPING":
             painter.drawEllipse(
                 QRectF(50 + paw_swing_r, 115 + dangle + body_y_offset, 16, 20)
             )
@@ -218,12 +238,11 @@ class DesktopPet(QWidget):
             painter.drawEllipse(QRectF(50, 95 + body_y_offset, 50, 25))
         painter.drawEllipse(QRectF(55, 75 + body_y_offset, 40, 45))
 
-        # 4. Front Legs & Typing Desk
+        # 4. Front Legs (Hands) & Typing Desk
         painter.setBrush(fur_main)
         if self.pet_state == "TYPING":
             painter.setBrush(QColor(60, 60, 60))
             painter.drawRoundedRect(QRectF(25, 130, 100, 25), 4, 4)
-
             left_pressed = math.sin(self.step_counter * 8) > 0
 
             painter.setBrush(QColor(100, 100, 100))
@@ -248,6 +267,11 @@ class DesktopPet(QWidget):
             painter.drawEllipse(QRectF(58, 112 + body_y_offset, 14, 16))
             painter.drawEllipse(QRectF(78, 112 + body_y_offset, 14, 16))
 
+        elif self.pet_state == "DRAG":
+            # Scrambling front paws (opposite phase to back legs)
+            painter.drawEllipse(QRectF(54, 115 + dangle + scramble_r, 12, 18))
+            painter.drawEllipse(QRectF(84, 115 + dangle + scramble_l, 12, 18))
+
         else:
             painter.drawEllipse(
                 QRectF(56 + paw_swing_l, 120 + dangle + body_y_offset, 14, 18)
@@ -255,6 +279,15 @@ class DesktopPet(QWidget):
             painter.drawEllipse(
                 QRectF(80 + paw_swing_r, 120 + dangle + body_y_offset, 14, 18)
             )
+
+        # --- HEAD ROTATION (Nuzzle) ---
+        painter.save()
+        if self.pet_state == "PETTING":
+            # Smooth, cute head tilt (nuzzle) instead of jittery horizontal vibration
+            nuzzle_angle = math.sin(self.step_counter * 5) * 8
+            painter.translate(75, 80)  # Pivot near the neck
+            painter.rotate(nuzzle_angle)
+            painter.translate(-75, -80)
 
         # 5. Ears
         painter.setBrush(fur_main)
@@ -291,7 +324,12 @@ class DesktopPet(QWidget):
         # 8. Eyes & Mouth
         if self.pet_state == "PETTING":
             painter.setPen(
-                QPen(QColor(0, 0, 0), 3, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
+                QPen(
+                    QColor(0, 0, 0),
+                    3,
+                    Qt.PenStyle.SolidLine,
+                    Qt.PenCapStyle.RoundCap,
+                )
             )
             painter.drawLine(55, 52, 65, 59)
             painter.drawLine(65, 59, 55, 66)
@@ -354,7 +392,36 @@ class DesktopPet(QWidget):
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawEllipse(QRectF(70, 68, 10, 6))
 
+        # Restore from the head translation/transformations
         painter.restore()
+
+        # --- DRAW PARTICLES (Hearts & Sweat) ---
+        for p in self.particles:
+            painter.save()
+            painter.translate(p["x"], p["y"])
+            painter.scale(p["scale"], p["scale"])
+
+            if p.get("type", "heart") == "heart":
+                painter.setBrush(QColor(255, 50, 80))
+                painter.setPen(Qt.PenStyle.NoPen)
+
+                h_path = QPainterPath()
+                h_path.moveTo(0, 2)
+                h_path.cubicTo(-8, -6, -12, 4, 0, 12)
+                h_path.cubicTo(12, 4, 8, -6, 0, 2)
+                painter.drawPath(h_path)
+            else:
+                # SWEAT
+                painter.setBrush(QColor(100, 200, 255))  # Cyan/Blue
+                painter.setPen(Qt.PenStyle.NoPen)
+
+                s_path = QPainterPath()
+                s_path.moveTo(0, -6)
+                s_path.cubicTo(4, 0, 4, 6, 0, 6)
+                s_path.cubicTo(-4, 6, -4, 0, 0, -6)
+                painter.drawPath(s_path)
+
+            painter.restore()
 
         # Speech Bubble
         if hasattr(self, "active_speech") and self.active_speech != "":
@@ -417,7 +484,7 @@ class DesktopPet(QWidget):
                 self.active_speech,
             )
             painter.restore()
-
+        painter.restore()
         painter.end()
         self.label.setPixmap(pixmap)
         self.setMask(pixmap.mask())
@@ -429,7 +496,7 @@ class DesktopPet(QWidget):
 
         self.move_timer = QTimer(self)
         self.move_timer.timeout.connect(self.update_behavior)
-        self.move_timer.start(30)
+        self.move_timer.start(50)
 
     def change_state(self):
         if self.pet_state in ["DRAG", "TYPING", "JUMPING", "PETTING"]:
@@ -466,6 +533,47 @@ class DesktopPet(QWidget):
             else:
                 self.pet_state = "IDLE"
 
+        # --- NEW: PARTICLE PHYSICS (Hearts & Sweat) ---
+        for p in self.particles[:]:
+            if p.get("type", "heart") == "heart":
+                p["y"] -= p["speed"]
+            else:
+                # Sweat drops have gravity and horizontal momentum
+                p["x"] += p["speed_x"]
+                p["speed_y"] += 0.5  # Gravity pulling it down
+                p["y"] += p["speed_y"]
+
+            p["scale"] -= 0.03
+            if p["scale"] <= 0:
+                self.particles.remove(p)
+
+        if self.pet_state == "PETTING":
+            if random.random() < 0.3:
+                self.particles.append(
+                    {
+                        "type": "heart",
+                        "x": random.randint(55, 95),
+                        "y": random.randint(10, 30),
+                        "speed": random.uniform(1.0, 2.0),
+                        "scale": random.uniform(0.8, 1.2),
+                    }
+                )
+
+        elif self.pet_state == "DRAG":
+            # Rapidly shoot sweat drops while being dragged
+            if random.random() < 0.6:
+                self.particles.append(
+                    {
+                        "type": "sweat",
+                        "x": random.randint(40, 110),
+                        "y": random.randint(20, 80),
+                        "speed_x": random.uniform(-3.0, 3.0)
+                        - (self.drag_vx * 0.05),  # Fly off opposite to movement
+                        "speed_y": random.uniform(-4.0, 0.0),  # Shoot upwards initially
+                        "scale": random.uniform(0.6, 1.0),
+                    }
+                )
+
         if self.pomo_state == "FOCUS":
             rem = int(self.pomo_end_time - time.time())
             if rem <= 0:
@@ -490,6 +598,7 @@ class DesktopPet(QWidget):
 
         if self.pet_state == "DRAG":
             self.drag_vx *= 0.7
+            self.drag_vy *= 0.7
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -584,12 +693,12 @@ class DesktopPet(QWidget):
                 if ok:
                     self.fixed_speech = text
                     self.active_speech = text
-                    self.save_config()  # Save memory
+                    self.save_config()
                     self.update_sprite()
             elif action == clear_action:
                 self.fixed_speech = ""
                 self.active_speech = ""
-                self.save_config()  # Save memory
+                self.save_config()
                 self.update_sprite()
             elif action == name_action:
                 text, ok = QInputDialog.getText(
@@ -597,7 +706,7 @@ class DesktopPet(QWidget):
                 )
                 if ok and text:
                     self.user_name = text
-                    self.save_config()  # Save memory
+                    self.save_config()
             elif action == remind_action:
                 dialog = QDialog(self)
                 dialog.setWindowTitle("Set Reminder")
@@ -691,7 +800,7 @@ class DesktopPet(QWidget):
 
             elif action in color_actions:
                 self.cat_color = color_actions[action]
-                self.save_config()  # Save memory
+                self.save_config()
                 self.update_sprite()
 
             elif action == pomo_action:
@@ -721,8 +830,13 @@ class DesktopPet(QWidget):
     def mouseMoveEvent(self, event):
         if event.buttons() == Qt.MouseButton.LeftButton and self.pet_state == "DRAG":
             new_pos = event.globalPosition().toPoint() - self.drag_position
+
             delta_x = new_pos.x() - self.x()
+            delta_y = new_pos.y() - self.y()
+
             self.drag_vx += delta_x * 0.3
+            self.drag_vy += delta_y * 0.3
+
             self.move(new_pos)
             event.accept()
 

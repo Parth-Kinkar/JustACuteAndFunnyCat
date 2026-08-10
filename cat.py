@@ -59,10 +59,18 @@ class DesktopPet(QWidget):
         self.speech_text = ""
 
         # Speech & Memory
-        self.fixed_speech = ""  # Remembers your permanent message
-        self.active_speech = ""  # The message currently displayed
+        self.fixed_speech = ""
+        self.active_speech = ""
         self.user_name = "Parth"
         self.reminders = []
+
+        # --- NEW: Pomodoro Variables ---
+        self.pomo_state = (
+            "OFF"  # Can be 'OFF', 'FOCUS', 'BREAK_ALARM', 'BREAK', 'WORK_ALARM'
+        )
+        self.pomo_focus_duration = 0
+        self.pomo_break_duration = 0
+        self.pomo_end_time = 0
 
         self.init_ui()
         self.init_timers()
@@ -316,7 +324,19 @@ class DesktopPet(QWidget):
             b_x = 75 - (b_width / 2)
             b_y = 25 - b_height  # Starts right above the head
 
-            painter.setBrush(QColor(255, 255, 255))
+            # --- POMODORO COLORS ---
+            bg_color = QColor(255, 255, 255)
+            text_color = QColor(0, 0, 0)
+
+            if hasattr(self, "pomo_state"):
+                if self.pomo_state in ["FOCUS", "WORK_ALARM"]:
+                    bg_color = QColor(220, 50, 50)  # Red
+                    text_color = QColor(255, 255, 255)  # White
+                elif self.pomo_state in ["BREAK", "BREAK_ALARM"]:
+                    bg_color = QColor(50, 100, 220)  # Blue
+                    text_color = QColor(255, 255, 255)  # White
+
+            painter.setBrush(bg_color)
             painter.setPen(QPen(QColor(0, 0, 0), 2))
             painter.drawRoundedRect(
                 int(b_x), int(b_y), int(b_width), int(b_height), 4, 4
@@ -328,10 +348,13 @@ class DesktopPet(QWidget):
                     [QPoint(70, tail_y), QPoint(80, tail_y), QPoint(75, tail_y + 6)]
                 )
             )
-            painter.setPen(QPen(QColor(255, 255, 255), 2))
+
+            # Erase top line of tail using the background color
+            painter.setPen(QPen(bg_color, 2))
             painter.drawLine(71, tail_y, 79, tail_y)
 
-            painter.setPen(QColor(0, 0, 0))
+            # Draw text using our dynamic text color
+            painter.setPen(text_color)
             # Draw the wrapped text inside our calculated box
             painter.drawText(
                 QRect(
@@ -402,6 +425,27 @@ class DesktopPet(QWidget):
             else:
                 self.pet_state = "IDLE"
 
+        # --- NEW: POMODORO LOGIC ---
+        if self.pomo_state == "FOCUS":
+            rem = int(self.pomo_end_time - time.time())
+            if rem <= 0:
+                self.pomo_state = "BREAK_ALARM"
+                self.pet_state = "JUMPING"
+                self.active_speech = "Time for a break!"
+            else:
+                mins, secs = divmod(rem, 60)
+                self.active_speech = f"Focus {mins:02d}:{secs:02d}"
+
+        elif self.pomo_state == "BREAK":
+            rem = int(self.pomo_end_time - time.time())
+            if rem <= 0:
+                self.pomo_state = "WORK_ALARM"
+                self.pet_state = "JUMPING"
+                self.active_speech = "Break is over, time to work!"
+            else:
+                mins, secs = divmod(rem, 60)
+                self.active_speech = f"Break {mins:02d}:{secs:02d}"
+
         self.update_sprite()
 
         # --- Drag Physics (Friction) ---
@@ -411,13 +455,23 @@ class DesktopPet(QWidget):
     # --- Mouse Events ---
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
-            # NEW: Acknowledge the reminder and calm the cat down
+            # Acknowledge the reminder/alarm and calm the cat down
             if self.pet_state == "JUMPING":
                 self.pet_state = "IDLE"
-                self.active_speech = self.fixed_speech  # Restore the old message!
+
+                # --- NEW: Pomodoro Alarm Logic ---
+                if self.pomo_state == "BREAK_ALARM":
+                    self.pomo_state = "BREAK"
+                    self.pomo_end_time = time.time() + self.pomo_break_duration
+                elif self.pomo_state == "WORK_ALARM":
+                    self.pomo_state = "FOCUS"
+                    self.pomo_end_time = time.time() + self.pomo_focus_duration
+                else:
+                    self.active_speech = self.fixed_speech  # Regular reminder
+
                 self.update_sprite()
                 event.accept()
-                return  # Stop here so we don't accidentally drag it
+                return
 
             # Normal drag behavior
             self.pet_state = "DRAG"
@@ -437,50 +491,42 @@ class DesktopPet(QWidget):
             menu.addSeparator()
             name_action = menu.addAction("Tell my name")
             remind_action = menu.addAction("Set a reminder")
+            menu.addSeparator()
+
+            # --- NEW: Pomodoro Menu ---
+            pomo_action = menu.addAction("Start Pomodoro")
+            stop_pomo_action = menu.addAction("Stop Pomodoro")
 
             action = menu.exec(event.globalPosition().toPoint())
 
-            # 1. Fixed Message
             if action == msg_action:
                 text, ok = QInputDialog.getText(
                     self, "Cat Speech", "What should the cat say?"
                 )
                 if ok:
                     self.fixed_speech = text
-                    self.active_speech = text  # Set both!
+                    self.active_speech = text
                     self.update_sprite()
-
-            # 2. Clear Message
             elif action == clear_action:
                 self.fixed_speech = ""
-                self.active_speech = ""  # Clear both!
+                self.active_speech = ""
                 self.update_sprite()
-
-            # ... rest of the Right-Click logic (Tell my name, Set a reminder) remains identical
-
-            # 3. Tell My Name
             elif action == name_action:
                 text, ok = QInputDialog.getText(
                     self, "Name", "What should I call you?", text=self.user_name
                 )
                 if ok and text:
                     self.user_name = text
-
-            # 4. Set a Reminder
             elif action == remind_action:
                 dialog = QDialog(self)
                 dialog.setWindowTitle("Set Reminder")
                 dialog.setStyleSheet("background-color: white; color: black;")
                 layout = QVBoxLayout(dialog)
-
                 layout.addWidget(QLabel("Select Date and Time:"))
 
-                # --- The Interactive Calendar & Clock UI ---
                 dt_edit = QDateTimeEdit(dialog)
                 dt_edit.setDateTime(QDateTime.currentDateTime())
-                dt_edit.setCalendarPopup(
-                    True
-                )  # This enables the dropdown calendar widget
+                dt_edit.setCalendarPopup(True)
                 layout.addWidget(dt_edit)
 
                 buttons = QDialogButtonBox(
@@ -493,15 +539,34 @@ class DesktopPet(QWidget):
                 layout.addWidget(buttons)
 
                 if dialog.exec() == QDialog.DialogCode.Accepted:
-                    # Pull the time from the UI and format it
                     selected_dt = dt_edit.dateTime().toPyDateTime()
                     time_str = selected_dt.strftime("%Y-%m-%d %H:%M")
-
                     msg, ok2 = QInputDialog.getText(
                         self, "Reminder Message", "What should I remind you about?"
                     )
                     if ok2 and msg:
                         self.reminders.append({"time": time_str, "message": msg})
+
+            # --- NEW: Start Pomodoro ---
+            elif action == pomo_action:
+                focus_mins, ok1 = QInputDialog.getInt(
+                    self, "Pomodoro", "Focus time (minutes):", 25, 1, 120
+                )
+                if ok1:
+                    break_mins, ok2 = QInputDialog.getInt(
+                        self, "Pomodoro", "Break time (minutes):", 5, 1, 60
+                    )
+                    if ok2:
+                        self.pomo_focus_duration = focus_mins * 60
+                        self.pomo_break_duration = break_mins * 60
+                        self.pomo_state = "FOCUS"
+                        self.pomo_end_time = time.time() + self.pomo_focus_duration
+
+            # --- NEW: Stop Pomodoro ---
+            elif action == stop_pomo_action:
+                self.pomo_state = "OFF"
+                self.active_speech = self.fixed_speech
+                self.update_sprite()
 
             event.accept()
 
@@ -520,7 +585,11 @@ class DesktopPet(QWidget):
 
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
-            self.change_state()
+            # Force the state back to IDLE the second you let go
+            self.pet_state = "IDLE"
+            # Redraw the cat immediately so the mouth snaps back to normal
+            self.update_sprite()
+
             event.accept()
 
 
